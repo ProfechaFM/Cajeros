@@ -31,6 +31,7 @@
   input,select,textarea{width:100%;font-size:18px;padding:13px 12px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font-family:inherit}
   input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);border-color:var(--brand)}
   input[inputmode="numeric"],input[inputmode="decimal"]{text-align:right;font-variant-numeric:tabular-nums}
+  input.left{text-align:left}
   textarea{min-height:70px;resize:vertical;text-align:left;font-size:16px}
   .denom-row{display:grid;grid-template-columns:100px 1fr auto;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}
   .denom-row:last-child{border-bottom:0}
@@ -132,6 +133,31 @@ const money = n => "₡" + Math.round(n||0).toLocaleString("es-CR");
 const num = v => { const n = parseFloat(String(v).replace(/[^\d.-]/g,"")); return isNaN(n)?0:n; };
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
+/* --- montos: se escriben como ₡430 000 (espacio cada 3 dígitos) --- */
+function fmtMonto(v){
+  const d = String(v==null?"":v).replace(/\D/g,"");
+  if(!d) return "";
+  return "₡" + d.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+const mIn = n => (n===null||n===undefined||n===""||n===0) ? "" : fmtMonto(n);
+function fmtMontoEl(el){
+  const start = el.selectionStart;
+  const antes = el.value.slice(0,start).replace(/\D/g,"").length;
+  el.value = fmtMonto(el.value);
+  let i=0, pos=el.value.length;
+  if(antes===0) pos = el.value.length ? 1 : 0;
+  else for(let k=0;k<el.value.length;k++){
+    if(/\d/.test(el.value[k])){ i++; if(i===antes){ pos=k+1; break; } }
+  }
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+}
+/** Formatea todos los campos de monto de la pantalla actual. */
+function fmtMontos(root){
+  (root||document).querySelectorAll("input[data-money]").forEach(el=>{
+    if(document.activeElement===el) fmtMontoEl(el); else el.value=fmtMonto(el.value);
+  });
+}
+
 async function api(payload){
   const r = await fetch(API, {
     method: "POST", redirect: "follow",
@@ -187,7 +213,7 @@ function renderLogin(){
           ${CFG.cajeros.map(n=>`<option>${esc(n)}</option>`).join("")}
         </select></label>
       <label class="fld"><span>PIN</span>
-        <input id="l-pin" inputmode="numeric" type="password" placeholder="••••" autocomplete="off"></label>
+        <input id="l-pin" class="left" inputmode="numeric" type="password" placeholder="••••" autocomplete="off"></label>
       <p class="err hidden" id="l-err"></p>
       <button class="btn-primary" style="width:100%" id="l-go">Empezar</button>
       <button class="link" onclick="renderAdminLogin()">Entrar como administrador</button>
@@ -254,16 +280,16 @@ function pApertura(){
       <h2 class="step">Monto de apertura</h2>
       <p class="hint">¿Con cuánto efectivo abriste la caja hoy?</p>
       <label class="fld"><span>Apertura (colones)</span>
-        <input id="a-ap" inputmode="numeric" value="${C.apertura??""}" placeholder="0"></label>
+        <input id="a-ap" data-money inputmode="numeric" value="${mIn(C.apertura)}" placeholder="₡0"></label>
     </div>`;
   const ok=()=>navBar(()=>irA(2),"Continuar",C.apertura!==null&&C.apertura!=="");
-  $("#a-ap").oninput=e=>{ C.apertura=num(e.target.value); ok(); };
+  $("#a-ap").oninput=e=>{ fmtMontoEl(e.target); C.apertura=num(e.target.value); ok(); };
   ok();
 }
 
 function pElectronicos(){
   const f=(id,lbl,val)=>`<label class="fld"><span>${lbl}</span>
-    <input id="${id}" inputmode="numeric" value="${val||""}" placeholder="0"></label>`;
+    <input id="${id}" data-money inputmode="numeric" value="${mIn(val)}" placeholder="₡0"></label>`;
   screen.innerHTML=`
     <div class="card">
       <h2 class="step">Datáfonos y otros</h2>
@@ -271,7 +297,8 @@ function pElectronicos(){
       ${f("e-bac","Datáfono BAC",C.bac)}
       ${f("e-dav","Datáfono Davibank",C.davibank)}
       ${f("e-sin","SINPE Móvil",C.sinpes)}
-      ${f("e-dol","Dólares recibidos ($)",C.dolares)}
+      <label class="fld"><span>Dólares recibidos ($)</span>
+        <input id="e-dol" inputmode="numeric" value="${C.dolares||""}" placeholder="0"></label>
       ${f("e-ret","Retiros de efectivo",C.retiros)}
       <label class="fld hidden" id="e-just-wrap"><span>Justificación del retiro (obligatoria)</span>
         <textarea id="e-just" placeholder="¿Por qué se hizo el retiro?">${esc(C.retiroJustif)}</textarea></label>
@@ -282,6 +309,7 @@ function pElectronicos(){
       ${f("e-omonto","Monto",C.otrosMonto)}
     </div>`;
   const sync=()=>{
+    fmtMontos(screen);
     C.bac=num($("#e-bac").value); C.davibank=num($("#e-dav").value); C.sinpes=num($("#e-sin").value);
     C.dolares=num($("#e-dol").value); C.retiros=num($("#e-ret").value);
     C.retiroJustif=$("#e-just").value.trim();
@@ -299,10 +327,10 @@ function pVenta(){
       <h2 class="step">Cierre de sistema</h2>
       <p class="hint">Digitá la venta total que reporta el sistema (POS).</p>
       <label class="fld"><span>Venta total (colones)</span>
-        <input id="v-venta" inputmode="numeric" value="${C.venta??""}" placeholder="0"></label>
+        <input id="v-venta" data-money inputmode="numeric" value="${mIn(C.venta)}" placeholder="₡0"></label>
     </div>`;
   const ok=()=>navBar(()=>irA(4),"Continuar",!!C.venta);
-  $("#v-venta").oninput=e=>{ C.venta=num(e.target.value); ok(); };
+  $("#v-venta").oninput=e=>{ fmtMontoEl(e.target); C.venta=num(e.target.value); ok(); };
   ok();
 }
 
@@ -340,10 +368,10 @@ function pPrevista(){
       <div class="note">Revisá que los montos de datáfono y SINPE coincidan con los comprobantes.
         Podés corregirlos aquí; el efectivo contado ya quedó bloqueado.</div>
       <div class="subhead">Montos electrónicos (editables)</div>
-      <label class="fld"><span>Datáfono BAC</span><input id="p-bac" inputmode="numeric" value="${C.bac}"></label>
-      <label class="fld"><span>Datáfono Davibank</span><input id="p-dav" inputmode="numeric" value="${C.davibank}"></label>
-      <label class="fld"><span>SINPE Móvil</span><input id="p-sin" inputmode="numeric" value="${C.sinpes}"></label>
-      <label class="fld"><span>Dólares ($)</span><input id="p-dol" inputmode="numeric" value="${C.dolares}"></label>
+      <label class="fld"><span>Datáfono BAC</span><input id="p-bac" data-money inputmode="numeric" value="${mIn(C.bac)}" placeholder="₡0"></label>
+      <label class="fld"><span>Datáfono Davibank</span><input id="p-dav" data-money inputmode="numeric" value="${mIn(C.davibank)}" placeholder="₡0"></label>
+      <label class="fld"><span>SINPE Móvil</span><input id="p-sin" data-money inputmode="numeric" value="${mIn(C.sinpes)}" placeholder="₡0"></label>
+      <label class="fld"><span>Dólares ($)</span><input id="p-dol" inputmode="numeric" value="${C.dolares||""}" placeholder="0"></label>
       <div class="subhead">Resumen (bloqueado)</div>
       <div class="review locked" style="padding:2px 12px;border-radius:10px">
         ${rr("Fecha",fmtCorta(C.fecha))}${rr("Caja",esc(C.caja))}
@@ -355,7 +383,8 @@ function pPrevista(){
         <textarea id="p-notas" placeholder="Algo que quieras dejar anotado…">${esc(C.notas)}</textarea></label>
       <p class="err hidden" id="p-err"></p>
     </div>`;
-  const s=()=>{ C.bac=num($("#p-bac").value); C.davibank=num($("#p-dav").value);
+  const s=()=>{ fmtMontos(screen);
+    C.bac=num($("#p-bac").value); C.davibank=num($("#p-dav").value);
     C.sinpes=num($("#p-sin").value); C.dolares=num($("#p-dol").value); C.notas=$("#p-notas").value.trim(); };
   screen.querySelectorAll("input,textarea").forEach(el=>el.oninput=s);
   navBar(async()=>{
@@ -382,10 +411,11 @@ function pPrevista(){
 
 function pResultado(R){
   $("#prog").innerHTML="";
-  const filas=(obj,marcar)=>TODAS.filter(d=>obj[d]>0).map(d=>{
-    const low = marcar && obj[d] < (R.minimos[d]??0);
-    return `<tr class="${low?"low":""}"><td>${obj[d]}</td>
-      <td class="den">₡${d.toLocaleString("es-CR")}</td><td>${money(obj[d]*d)}</td></tr>`;}).join("");
+  const filas=(obj,marcar)=>TODAS.map(d=>{
+    const q=obj[d]||0;
+    const low = marcar && q < (R.minimos[d]??0);
+    return `<tr class="${low?"low":""}"><td>${q}</td>
+      <td class="den">₡${d.toLocaleString("es-CR")}</td><td>${q?money(q*d):"—"}</td></tr>`;}).join("");
   const tot=o=>TODAS.reduce((s,d)=>s+(o[d]||0)*d,0);
   const totE=tot(R.desgloseEntrega), totF=tot(R.desgloseFondo);
   nav.classList.remove("hidden");
@@ -528,7 +558,7 @@ function adminPintarOtros(body){
       <p class="hint">Efectivo que no viene de una caja. Entra al depósito directamente.</p>
       <label class="fld"><span>Fecha</span><input type="date" id="o-fecha" value="${A.hasta}"></label>
       <label class="fld"><span>¿De qué es?</span><input id="o-desc" placeholder="Ej. venta de aceite quemado"></label>
-      <label class="fld"><span>Monto</span><input id="o-monto" inputmode="numeric" placeholder="0"></label>
+      <label class="fld"><span>Monto</span><input id="o-monto" data-money inputmode="numeric" placeholder="₡0" oninput="fmtMontoEl(this)"></label>
       <p class="err hidden" id="o-err"></p>
       <button class="btn-primary" style="width:100%" id="o-go">Guardar</button>
     </div>
