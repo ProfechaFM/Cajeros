@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cierre de caja — La Fiesta del Maíz</title>
+<style>
+  :root{
+    --bg:#f3f1ea; --card:#fff; --ink:#26251f; --muted:#6b6a62;
+    --line:#d9d6ca; --brand:#1d6e56; --brand-ink:#0f5040;
+    --warn-bg:#faeeda; --warn-ink:#854f0b; --warn-line:#ef9f27;
+    --danger-bg:#fcebeb; --danger-ink:#a32d2d; --danger-line:#e24b4a;
+    --field:#fbfaf5; --r:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.5;-webkit-text-size-adjust:100%}
+  .wrap{max-width:520px;margin:0 auto;padding:16px 16px 96px}
+  .wrap.admin{max-width:1200px}
+  header.app{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px 14px}
+  header.app .title{font-weight:600;font-size:16px}
+  header.app .who{font-size:13px;color:var(--muted);text-align:right}
+  .prog{display:flex;gap:4px;margin:0 0 16px}
+  .prog span{flex:1;height:5px;border-radius:3px;background:var(--line)}
+  .prog span.on{background:var(--brand)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin:0 0 14px}
+  h2.step{margin:0 0 4px;font-size:20px;font-weight:600}
+  p.hint{margin:0 0 16px;color:var(--muted);font-size:14px}
+  label.fld{display:block;margin:0 0 14px}
+  label.fld span{display:block;font-size:14px;color:var(--muted);margin:0 0 5px}
+  input,select,textarea{width:100%;font-size:18px;padding:13px 12px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);border-color:var(--brand)}
+  input[inputmode="numeric"],input[inputmode="decimal"]{text-align:right;font-variant-numeric:tabular-nums}
+  textarea{min-height:70px;resize:vertical;text-align:left;font-size:16px}
+  .denom-row{display:grid;grid-template-columns:100px 1fr auto;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .denom-row:last-child{border-bottom:0}
+  .denom-row .dn{font-weight:500;font-variant-numeric:tabular-nums}
+  .denom-row input{padding:9px 10px;font-size:16px}
+  .denom-row .tot{text-align:right;color:var(--muted);font-size:13px;min-width:64px}
+  .subhead{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 6px}
+  .navbar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px;display:flex;gap:10px;max-width:520px;margin:0 auto}
+  button{font-family:inherit;font-size:17px;font-weight:500;padding:14px 16px;border-radius:10px;border:1px solid transparent;cursor:pointer}
+  .btn-primary{flex:2;background:var(--brand);color:#fff}
+  .btn-ghost{flex:1;background:transparent;border-color:var(--line);color:var(--ink)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .review .rr{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+  .review .rr:last-child{border-bottom:0}
+  .review .rr b{font-weight:500;font-variant-numeric:tabular-nums}
+  .review .rr .k{color:var(--muted)}
+  .note{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn-ink);border-radius:10px;padding:12px 14px;font-size:14px;margin:0 0 14px}
+  .locked{background:#f1efe8;color:var(--muted)}
+  .err{color:var(--danger-ink);font-size:14px;margin:0 0 12px}
+  .link{background:none;border:0;color:var(--brand);text-decoration:underline;font-size:14px;padding:8px;cursor:pointer;width:100%}
+  .spin{text-align:center;color:var(--muted);padding:40px 0}
+  /* comprobante */
+  .cbte{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px}
+  .cbte h3{margin:0 0 2px;font-size:17px;font-weight:600;text-align:center}
+  .cbte .sub{text-align:center;color:var(--muted);font-size:13px;margin:0 0 12px}
+  .cbte .meta{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:13px;margin:0 0 12px}
+  .cbte .meta div{display:flex;justify-content:space-between;border-bottom:1px dotted var(--line);padding:3px 0}
+  .cbte .meta .k{color:var(--muted)}
+  .cbte table{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 10px}
+  .cbte caption{text-align:left;font-weight:600;font-size:13px;padding:6px 0 4px;text-transform:uppercase;letter-spacing:.03em}
+  .cbte th,.cbte td{border:1px solid var(--line);padding:5px 7px;text-align:right;font-variant-numeric:tabular-nums}
+  .cbte th{background:#f1efe8;font-weight:500;color:var(--muted)}
+  .cbte td.den{text-align:left}
+  .cbte tr.low td{background:var(--warn-bg)}
+  .cbte tfoot td{font-weight:600;background:#f1efe8}
+  .cbte .big{font-size:19px;font-weight:600;text-align:center;padding:10px;border:1px solid var(--brand);border-radius:8px;margin:4px 0 12px;color:var(--brand-ink)}
+  .cbte .alert{background:var(--danger-bg);border:1px solid var(--danger-line);color:var(--danger-ink);border-radius:8px;padding:12px;text-align:center;font-weight:600;margin:0 0 12px}
+  .cbte .notas{font-size:13px;color:var(--muted);border-top:1px dotted var(--line);padding-top:8px}
+  /* admin */
+  .tabs{display:flex;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+  .tabs button{font-size:15px;padding:9px 14px;background:var(--card);border:1px solid var(--line);color:var(--muted);flex:none}
+  .tabs button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .toolbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:0 0 14px}
+  .toolbar label{font-size:13px;color:var(--muted)}
+  .toolbar input,.toolbar select{font-size:15px;padding:9px 10px;width:auto}
+  .toolbar button{font-size:15px;padding:10px 14px;flex:none;background:var(--brand);color:#fff}
+  .xls{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:var(--r)}
+  table.grid{border-collapse:collapse;width:100%;font-size:13px;font-family:Arial,sans-serif}
+  table.grid th,table.grid td{border:1px solid var(--line);padding:5px 8px;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}
+  table.grid th{background:#e8efe9;font-weight:600;color:var(--brand-ink);position:sticky;top:0;text-align:center}
+  table.grid td.txt{text-align:left}
+  table.grid tr.pend td{background:var(--danger-bg)}
+  table.grid td.neg{color:var(--danger-ink);font-weight:600}
+  table.grid td.pos{color:var(--brand-ink);font-weight:600}
+  table.grid tr:nth-child(even) td{background:#fbfaf5}
+  table.grid tr.pend:nth-child(even) td{background:var(--danger-bg)}
+  .kpis{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 16px;flex:1;min-width:130px}
+  .kpi .k{font-size:12px;color:var(--muted)}
+  .kpi .v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+  .hidden{display:none}
+  @media print{
+    body{background:#fff}.wrap{max-width:none;padding:0}
+    header.app,.prog,.navbar,.no-print,.tabs,.toolbar{display:none!important}
+    .cbte{border:0;padding:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <header class="app">
+    <div class="title" id="apptitle">Cierre de caja</div>
+    <div class="who" id="who"></div>
+  </header>
+  <div class="prog" id="prog" aria-hidden="true"></div>
+  <div id="screen"><div class="spin">Cargando…</div></div>
+</div>
+<div class="navbar no-print hidden" id="nav"></div>
+
+<script>
+/* ========================================================================== */
+const API = "https://script.google.com/macros/s/AKfycbzs7ZkwOqA-V3a0y1w2o5aldj492dyChdppfL9_NOa0rdHD-Q7QPS_T8HiRXiKnRwk_Sw/exec";
+
+let CFG = null;            // cajeros, cajas, monedas, minimos, billetes (del Sheet)
+let TODAS = [];            // denominaciones de mayor a menor
+let ADMIN = null;          // { pin, config, ... } cuando entra un admin
+
+const C = {                // estado del cierre en curso
+  cajero:null, pin:null, caja:"", fecha:null, apertura:null,
+  bac:0, davibank:0, sinpes:0, dolares:0, retiros:0, retiroJustif:"",
+  otrosDesc:"", otrosMonto:0, venta:null,
+  billetes:{}, pesos:{}, notas:"", congelado:false
+};
+
+/* ============================== utilidades =============================== */
+const $ = s => document.querySelector(s);
+const screen = $("#screen"), nav = $("#nav");
+const money = n => "₡" + Math.round(n||0).toLocaleString("es-CR");
+const num = v => { const n = parseFloat(String(v).replace(/[^\d.-]/g,"")); return isNaN(n)?0:n; };
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(payload){
+  const r = await fetch(API, {
+    method: "POST", redirect: "follow",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },   // evita preflight CORS
+    body: JSON.stringify(payload)
+  });
+  return r.json();
+}
+async function apiGet(accion, params){
+  const q = new URLSearchParams(Object.assign({accion}, params||{}));
+  const r = await fetch(API + "?" + q.toString(), { redirect:"follow" });
+  return r.json();
+}
+function fmtFecha(s){ if(!s) return "—"; const d=new Date(String(s).slice(0,10)+"T00:00:00");
+  return d.toLocaleDateString("es-CR",{weekday:"long",day:"numeric",month:"long"}); }
+function fmtCorta(s){ if(!s) return ""; const d=new Date(String(s).slice(0,10)+"T00:00:00");
+  return d.toLocaleDateString("es-CR"); }
+function depositoDe(f){
+  const d=new Date(f+"T00:00:00"), dow=d.getDay(), t=new Date(d);
+  if(dow>=1&&dow<=4) t.setDate(d.getDate()+(5-dow));
+  else if(dow===0)   t.setDate(d.getDate()+1);
+  else               t.setDate(d.getDate()+(8-dow));
+  return t.toISOString().slice(0,10);
+}
+
+/* ================================ arranque =============================== */
+(async function init(){
+  try{
+    const r = await apiGet("config");
+    if(!r.ok) throw new Error(r.error||"No se pudo cargar la configuración");
+    CFG = r;
+    C.fecha = r.hoy;
+    TODAS = CFG.billetes.concat(Object.keys(CFG.monedas).map(Number)).sort((a,b)=>b-a);
+    renderLogin();
+  }catch(err){
+    screen.innerHTML = `<div class="card"><h2 class="step">No se pudo conectar</h2>
+      <p class="hint">Revisá la conexión a internet e intentá de nuevo.</p>
+      <p class="err">${esc(err.message)}</p>
+      <button class="btn-primary" style="width:100%" onclick="location.reload()">Reintentar</button></div>`;
+  }
+})();
+
+/* ================================= LOGIN ================================= */
+function renderLogin(){
+  nav.classList.add("hidden"); $("#prog").innerHTML=""; $("#who").textContent="";
+  $("#wrap").classList.remove("admin"); $("#apptitle").textContent="Cierre de caja";
+  screen.innerHTML = `
+    <div class="card">
+      <h2 class="step">Ingresá tu cierre</h2>
+      <p class="hint">Elegí tu nombre y digitá tu PIN.</p>
+      <label class="fld"><span>Cajero(a)</span>
+        <select id="l-cajero"><option value="">Seleccioná…</option>
+          ${CFG.cajeros.map(n=>`<option>${esc(n)}</option>`).join("")}
+        </select></label>
+      <label class="fld"><span>PIN</span>
+        <input id="l-pin" inputmode="numeric" type="password" placeholder="••••" autocomplete="off"></label>
+      <p class="err hidden" id="l-err"></p>
+      <button class="btn-primary" style="width:100%" id="l-go">Empezar</button>
+      <button class="link" onclick="renderAdminLogin()">Entrar como administrador</button>
+    </div>`;
+  $("#l-go").onclick = doLogin;
+  $("#l-pin").onkeydown = e => { if(e.key==="Enter") doLogin(); };
+}
+async function doLogin(){
+  const nombre = $("#l-cajero").value, pin = $("#l-pin").value;
+  const err = $("#l-err"), btn = $("#l-go");
+  const fail = m => { err.textContent=m; err.classList.remove("hidden"); btn.disabled=false; btn.textContent="Empezar"; };
+  if(!nombre) return fail("Seleccioná tu nombre.");
+  if(!pin)    return fail("Digitá tu PIN.");
+  btn.disabled=true; btn.textContent="Verificando…"; err.classList.add("hidden");
+  try{
+    const r = await api({accion:"verificarPin", cajero:nombre, pin:pin});
+    if(!r.ok) return fail(r.error||"PIN incorrecto.");
+    C.cajero=nombre; C.pin=pin; irA(0);
+  }catch(e){ fail("Sin conexión. Intentá de nuevo."); }
+}
+
+/* ============================ FLUJO DEL CAJERO =========================== */
+const PASOS=["fecha","apertura","electronicos","venta","conteo","prevista","resultado"];
+let paso=0;
+function irA(p){ paso=p; renderPaso(); }
+function renderPaso(){
+  $("#who").textContent = C.cajero + (C.caja? " · "+C.caja : "");
+  const prog=$("#prog"); prog.innerHTML="";
+  PASOS.forEach((_,i)=>{ const s=document.createElement("span"); if(i<=paso)s.className="on"; prog.appendChild(s); });
+  ({fecha:pFecha,apertura:pApertura,electronicos:pElectronicos,venta:pVenta,
+    conteo:pConteo,prevista:pPrevista,resultado:()=>{}})[PASOS[paso]]();
+}
+function navBar(onNext,label="Continuar",canNext=true){
+  nav.classList.remove("hidden");
+  nav.innerHTML = `${paso>0?`<button class="btn-ghost" id="nv-b">Atrás</button>`:""}
+                   <button class="btn-primary" id="nv-n" ${canNext?"":"disabled"}>${label}</button>`;
+  const b=$("#nv-b"); if(b) b.onclick=()=>irA(paso-1);
+  $("#nv-n").onclick=onNext;
+}
+
+function pFecha(){
+  screen.innerHTML=`
+    <div class="card">
+      <h2 class="step">Fecha y caja</h2>
+      <p class="hint">Confirmá la fecha del cierre y tu caja.</p>
+      <label class="fld"><span>Fecha del cierre</span>
+        <input id="f-fecha" type="date" value="${C.fecha}"></label>
+      <label class="fld"><span>Caja</span>
+        <select id="f-caja"><option value="">Seleccioná…</option>
+          ${CFG.cajas.map(c=>`<option ${C.caja===c?"selected":""}>${esc(c)}</option>`).join("")}
+        </select></label>
+      <div class="note" id="f-dep">Este cierre entra en el depósito del <b>${fmtFecha(depositoDe(C.fecha))}</b>.</div>
+    </div>`;
+  const ok=()=>navBar(()=>irA(1),"Continuar",!!C.caja);
+  $("#f-fecha").onchange=e=>{ C.fecha=e.target.value;
+    $("#f-dep").innerHTML=`Este cierre entra en el depósito del <b>${fmtFecha(depositoDe(C.fecha))}</b>.`; };
+  $("#f-caja").onchange=e=>{ C.caja=e.target.value; ok(); };
+  ok();
+}
+
+function pApertura(){
+  screen.innerHTML=`
+    <div class="card">
+      <h2 class="step">Monto de apertura</h2>
+      <p class="hint">¿Con cuánto efectivo abriste la caja hoy?</p>
+      <label class="fld"><span>Apertura (colones)</span>
+        <input id="a-ap" inputmode="numeric" value="${C.apertura??""}" placeholder="0"></label>
+    </div>`;
+  const ok=()=>navBar(()=>irA(2),"Continuar",C.apertura!==null&&C.apertura!=="");
+  $("#a-ap").oninput=e=>{ C.apertura=num(e.target.value); ok(); };
+  ok();
+}
+
+function pElectronicos(){
+  const f=(id,lbl,val)=>`<label class="fld"><span>${lbl}</span>
+    <input id="${id}" inputmode="numeric" value="${val||""}" placeholder="0"></label>`;
+  screen.innerHTML=`
+    <div class="card">
+      <h2 class="step">Datáfonos y otros</h2>
+      <p class="hint">Digitá cada monto. Dejá vacío lo que no aplique.</p>
+      ${f("e-bac","Datáfono BAC",C.bac)}
+      ${f("e-dav","Datáfono Davibank",C.davibank)}
+      ${f("e-sin","SINPE Móvil",C.sinpes)}
+      ${f("e-dol","Dólares recibidos ($)",C.dolares)}
+      ${f("e-ret","Retiros de efectivo",C.retiros)}
+      <label class="fld hidden" id="e-just-wrap"><span>Justificación del retiro (obligatoria)</span>
+        <textarea id="e-just" placeholder="¿Por qué se hizo el retiro?">${esc(C.retiroJustif)}</textarea></label>
+      <div class="subhead">Otros ingresos (opcional)</div>
+      <p class="hint">Efectivo que no es de la venta (ej. venta de aceite quemado).</p>
+      <label class="fld"><span>¿De qué es?</span>
+        <input id="e-odesc" value="${esc(C.otrosDesc)}" placeholder="Descripción"></label>
+      ${f("e-omonto","Monto",C.otrosMonto)}
+    </div>`;
+  const sync=()=>{
+    C.bac=num($("#e-bac").value); C.davibank=num($("#e-dav").value); C.sinpes=num($("#e-sin").value);
+    C.dolares=num($("#e-dol").value); C.retiros=num($("#e-ret").value);
+    C.retiroJustif=$("#e-just").value.trim();
+    C.otrosDesc=$("#e-odesc").value.trim(); C.otrosMonto=num($("#e-omonto").value);
+    $("#e-just-wrap").classList.toggle("hidden", !(C.retiros>0));
+    navBar(()=>irA(3),"Continuar", !(C.retiros>0 && !C.retiroJustif));
+  };
+  screen.querySelectorAll("input,textarea").forEach(el=>el.oninput=sync);
+  sync();
+}
+
+function pVenta(){
+  screen.innerHTML=`
+    <div class="card">
+      <h2 class="step">Cierre de sistema</h2>
+      <p class="hint">Digitá la venta total que reporta el sistema (POS).</p>
+      <label class="fld"><span>Venta total (colones)</span>
+        <input id="v-venta" inputmode="numeric" value="${C.venta??""}" placeholder="0"></label>
+    </div>`;
+  const ok=()=>navBar(()=>irA(4),"Continuar",!!C.venta);
+  $("#v-venta").oninput=e=>{ C.venta=num(e.target.value); ok(); };
+  ok();
+}
+
+function pConteo(){
+  const bill=CFG.billetes.map(d=>`
+    <div class="denom-row"><span class="dn">₡${d.toLocaleString("es-CR")}</span>
+      <input inputmode="numeric" data-bill="${d}" value="${C.billetes[d]??""}" placeholder="0"></div>`).join("");
+  const coin=Object.keys(CFG.monedas).map(Number).sort((a,b)=>b-a).map(d=>`
+    <div class="denom-row"><span class="dn">₡${d.toLocaleString("es-CR")}</span>
+      <input inputmode="decimal" data-coin="${d}" value="${C.pesos[d]??""}" placeholder="peso (g)">
+      <span class="tot" id="ct-${d}">—</span></div>`).join("");
+  screen.innerHTML=`
+    <div class="card">
+      <h2 class="step">Conteo de efectivo</h2>
+      <p class="hint">Contá los billetes y pesá las monedas en gramos.</p>
+      <div class="subhead">Billetes — cantidad</div>${bill}
+      <div class="subhead">Monedas — peso en gramos</div>${coin}
+      <div class="note" style="margin-top:14px">Al continuar, este conteo queda registrado y no se puede modificar.</div>
+    </div>`;
+  const est=d=>{ const c=CFG.monedas[d], p=num(C.pesos[d]);
+    return (p>0&&c.ref>0)?"≈ "+Math.round(p/c.ref*c.cant)+" ud":"—"; };
+  Object.keys(CFG.monedas).forEach(d=>{ const el=$("#ct-"+d); if(el) el.textContent=est(d); });
+  screen.querySelectorAll("input[data-bill]").forEach(el=>el.oninput=e=>{
+    C.billetes[+e.target.dataset.bill]=Math.round(num(e.target.value)); });
+  screen.querySelectorAll("input[data-coin]").forEach(el=>el.oninput=e=>{
+    const d=+e.target.dataset.coin; C.pesos[d]=num(e.target.value); $("#ct-"+d).textContent=est(d); });
+  navBar(()=>{ C.congelado=true; irA(5); },"Congelar y continuar");
+}
+
+function pPrevista(){
+  const rr=(k,v)=>`<div class="rr"><span class="k">${k}</span><b>${v}</b></div>`;
+  screen.innerHTML=`
+    <div class="card">
+      <h2 class="step">Revisá antes de confirmar</h2>
+      <div class="note">Revisá que los montos de datáfono y SINPE coincidan con los comprobantes.
+        Podés corregirlos aquí; el efectivo contado ya quedó bloqueado.</div>
+      <div class="subhead">Montos electrónicos (editables)</div>
+      <label class="fld"><span>Datáfono BAC</span><input id="p-bac" inputmode="numeric" value="${C.bac}"></label>
+      <label class="fld"><span>Datáfono Davibank</span><input id="p-dav" inputmode="numeric" value="${C.davibank}"></label>
+      <label class="fld"><span>SINPE Móvil</span><input id="p-sin" inputmode="numeric" value="${C.sinpes}"></label>
+      <label class="fld"><span>Dólares ($)</span><input id="p-dol" inputmode="numeric" value="${C.dolares}"></label>
+      <div class="subhead">Resumen (bloqueado)</div>
+      <div class="review locked" style="padding:2px 12px;border-radius:10px">
+        ${rr("Fecha",fmtCorta(C.fecha))}${rr("Caja",esc(C.caja))}
+        ${rr("Apertura",money(C.apertura))}${rr("Venta de sistema",money(C.venta))}
+        ${rr("Retiros",money(C.retiros))}
+        ${C.otrosMonto?rr("Otros ingresos",money(C.otrosMonto)):""}
+      </div>
+      <label class="fld" style="margin-top:14px"><span>Notas (opcional)</span>
+        <textarea id="p-notas" placeholder="Algo que quieras dejar anotado…">${esc(C.notas)}</textarea></label>
+      <p class="err hidden" id="p-err"></p>
+    </div>`;
+  const s=()=>{ C.bac=num($("#p-bac").value); C.davibank=num($("#p-dav").value);
+    C.sinpes=num($("#p-sin").value); C.dolares=num($("#p-dol").value); C.notas=$("#p-notas").value.trim(); };
+  screen.querySelectorAll("input,textarea").forEach(el=>el.oninput=s);
+  navBar(async()=>{
+    s();
+    const btn=$("#nv-n"), err=$("#p-err");
+    btn.disabled=true; btn.textContent="Enviando…"; err.classList.add("hidden");
+    try{
+      const r = await api({
+        accion:"guardarCierre", cajero:C.cajero, pin:C.pin, caja:C.caja, fecha:C.fecha,
+        apertura:C.apertura, venta:C.venta, bac:C.bac, davibank:C.davibank, sinpes:C.sinpes,
+        dolares:C.dolares, retiros:C.retiros, retiroJustif:C.retiroJustif,
+        otrosDesc:C.otrosDesc, otrosMonto:C.otrosMonto,
+        billetes:C.billetes, pesos:C.pesos, notas:C.notas
+      });
+      if(!r.ok){ err.textContent=r.error||"No se pudo guardar."; err.classList.remove("hidden");
+        btn.disabled=false; btn.textContent="Confirmar cierre"; return; }
+      paso=6; pResultado(r);
+    }catch(e){
+      err.textContent="Sin conexión. El cierre no se guardó, intentá de nuevo.";
+      err.classList.remove("hidden"); btn.disabled=false; btn.textContent="Confirmar cierre";
+    }
+  },"Confirmar cierre");
+}
+
+function pResultado(R){
+  $("#prog").innerHTML="";
+  const filas=(obj,marcar)=>TODAS.filter(d=>obj[d]>0).map(d=>{
+    const low = marcar && obj[d] < (R.minimos[d]??0);
+    return `<tr class="${low?"low":""}"><td>${obj[d]}</td>
+      <td class="den">₡${d.toLocaleString("es-CR")}</td><td>${money(obj[d]*d)}</td></tr>`;}).join("");
+  const tot=o=>TODAS.reduce((s,d)=>s+(o[d]||0)*d,0);
+  const totE=tot(R.desgloseEntrega), totF=tot(R.desgloseFondo);
+  nav.classList.remove("hidden");
+  nav.innerHTML=`<button class="btn-ghost no-print" id="r-new">Nuevo cierre</button>
+                 <button class="btn-primary no-print" id="r-print">Imprimir / PDF</button>`;
+  $("#r-new").onclick=()=>location.reload();
+  $("#r-print").onclick=()=>window.print();
+  screen.innerHTML=`
+    <div class="cbte">
+      <h3>Comprobante de cierre</h3>
+      <div class="sub">La Fiesta del Maíz · Profecha S.A.</div>
+      <div class="meta">
+        <div><span class="k">Fecha</span><span>${fmtCorta(C.fecha)}</span></div>
+        <div><span class="k">Caja</span><span>${esc(C.caja)}</span></div>
+        <div><span class="k">Cajero(a)</span><span>${esc(C.cajero)}</span></div>
+        <div><span class="k">Apertura</span><span>${money(C.apertura)}</span></div>
+        <div><span class="k">Depósito</span><span>${fmtCorta(R.deposito)}</span></div>
+        <div><span class="k">Tipo cambio</span><span>${money(R.tipoCambio)}</span></div>
+      </div>
+      ${R.alerta&&R.alerta.activa?`<div class="alert">Faltan ${money(R.alerta.monto)}.<br>
+        Revisá el cierre con un administrador.</div>`:""}
+      <div class="big">Entregar: ${money(totE)}${C.dolares>0?` + $${C.dolares}`:""}</div>
+      <table><caption>Dinero entregado</caption>
+        <thead><tr><th>Cantidad</th><th style="text-align:left">Denominación</th><th>Total</th></tr></thead>
+        <tbody>${filas(R.desgloseEntrega,false)||`<tr><td colspan="3" style="text-align:center;color:#6b6a62">Sin entrega</td></tr>`}</tbody>
+        <tfoot><tr><td></td><td class="den">Total</td><td>${money(totE)}</td></tr></tfoot></table>
+      <table><caption>Dinero disponible en caja</caption>
+        <thead><tr><th>Cantidad</th><th style="text-align:left">Denominación</th><th>Total</th></tr></thead>
+        <tbody>${filas(R.desgloseFondo,true)||`<tr><td colspan="3" style="text-align:center;color:#6b6a62">—</td></tr>`}</tbody>
+        <tfoot><tr><td></td><td class="den">Total</td><td>${money(totF)}</td></tr></tfoot></table>
+      ${C.notas?`<div class="notas"><b>Notas:</b> ${esc(C.notas)}</div>`:""}
+    </div>`;
+}
+
+/* ============================ VISTA DE ADMIN ============================= */
+function renderAdminLogin(){
+  nav.classList.add("hidden"); $("#prog").innerHTML=""; $("#who").textContent="";
+  screen.innerHTML=`
+    <div class="card">
+      <h2 class="step">Administración</h2>
+      <p class="hint">Digitá la clave de administrador.</p>
+      <label class="fld"><span>Clave</span>
+        <input id="ad-pin" type="password" placeholder="••••" autocomplete="off"></label>
+      <p class="err hidden" id="ad-err"></p>
+      <button class="btn-primary" style="width:100%" id="ad-go">Entrar</button>
+      <button class="link" onclick="renderLogin()">Volver</button>
+    </div>`;
+  const go=async()=>{
+    const pin=$("#ad-pin").value, err=$("#ad-err"), btn=$("#ad-go");
+    btn.disabled=true; btn.textContent="Verificando…"; err.classList.add("hidden");
+    try{
+      const r=await api({accion:"adminEntrar", pin});
+      if(!r.ok){ err.textContent=r.error||"Clave incorrecta"; err.classList.remove("hidden");
+        btn.disabled=false; btn.textContent="Entrar"; return; }
+      ADMIN={pin, ...r}; adminHome();
+    }catch(e){ err.textContent="Sin conexión."; err.classList.remove("hidden");
+      btn.disabled=false; btn.textContent="Entrar"; }
+  };
+  $("#ad-go").onclick=go;
+  $("#ad-pin").onkeydown=e=>{ if(e.key==="Enter") go(); };
+}
+
+let A = { desde:null, hasta:null, cierres:[], otros:[], tab:"cierres" };
+
+function adminHome(){
+  $("#wrap").classList.add("admin"); $("#apptitle").textContent="Administración";
+  $("#who").textContent="Administrador";
+  nav.classList.add("hidden");
+  const hoy=new Date(), d=new Date(hoy); d.setDate(hoy.getDate()-13);
+  A.desde=A.desde||d.toISOString().slice(0,10);
+  A.hasta=A.hasta||hoy.toISOString().slice(0,10);
+  adminRender();
+  adminCargar();
+}
+function adminRender(){
+  screen.innerHTML=`
+    <div class="tabs">
+      <button class="${A.tab==="cierres"?"on":""}" onclick="adminTab('cierres')">Cierres</button>
+      <button class="${A.tab==="otros"?"on":""}" onclick="adminTab('otros')">Otros ingresos</button>
+      <button onclick="renderLogin()">Salir</button>
+    </div>
+    <div class="toolbar no-print">
+      <div><label>Desde</label><input type="date" id="a-desde" value="${A.desde}"></div>
+      <div><label>Hasta</label><input type="date" id="a-hasta" value="${A.hasta}"></div>
+      <button id="a-buscar">Buscar</button>
+      <button id="a-excel">Exportar a Excel</button>
+    </div>
+    <div id="a-body"><div class="spin">Cargando…</div></div>`;
+  $("#a-buscar").onclick=()=>{ A.desde=$("#a-desde").value; A.hasta=$("#a-hasta").value; adminCargar(); };
+  $("#a-excel").onclick=exportarExcel;
+}
+function adminTab(t){ A.tab=t; adminRender(); adminPintar(); }
+
+async function adminCargar(){
+  try{
+    const r=await api({accion:"adminDatos", pin:ADMIN.pin, desde:A.desde, hasta:A.hasta});
+    if(!r.ok){ $("#a-body").innerHTML=`<p class="err">${esc(r.error)}</p>`; return; }
+    A.cierres=r.cierres||[]; A.otros=r.otros||[]; adminPintar();
+  }catch(e){ $("#a-body").innerHTML=`<p class="err">Sin conexión.</p>`; }
+}
+
+function adminPintar(){
+  const body=$("#a-body"); if(!body) return;
+  if(A.tab==="otros") return adminPintarOtros(body);
+
+  const F=A.cierres;
+  if(!F.length){ body.innerHTML=`<div class="card"><p class="hint" style="margin:0">No hay cierres en este rango.</p></div>`; return; }
+  const sum=k=>F.reduce((s,r)=>s+num(r[k]),0);
+  const pend=F.filter(r=>String(r.estado).trim()==="pendiente").length;
+  const cols=[["fecha","Fecha"],["caja","Caja"],["cajero","Cajero"],["apertura","Apertura"],
+    ["venta","Venta"],["bac","BAC"],["davibank","Davibank"],["sinpes","SINPE"],["dolares","US$"],
+    ["retiros","Retiros"],["otrosMonto","Otros"],["efectivoContado","Efectivo"],["entrega","Depositado"],
+    ["fondoFinal","Fondo"],["descuadre","Descuadre"],["notas","Notas"]];
+  const txt=new Set(["fecha","caja","cajero","notas"]);
+  body.innerHTML=`
+    <div class="kpis">
+      <div class="kpi"><div class="k">Cierres</div><div class="v">${F.length}</div></div>
+      <div class="kpi"><div class="k">Total a depositar</div><div class="v">${money(sum("entrega"))}</div></div>
+      <div class="kpi"><div class="k">Ventas</div><div class="v">${money(sum("venta"))}</div></div>
+      <div class="kpi"><div class="k">Descuadre neto</div><div class="v">${money(sum("descuadre"))}</div></div>
+      <div class="kpi"><div class="k">Pendientes</div><div class="v" style="color:${pend?"var(--danger-ink)":"inherit"}">${pend}</div></div>
+    </div>
+    <div class="xls"><table class="grid">
+      <thead><tr>${cols.map(c=>`<th>${c[1]}</th>`).join("")}</tr></thead>
+      <tbody>${F.map(r=>`<tr class="${String(r.estado).trim()==="pendiente"?"pend":""}">
+        ${cols.map(([k])=>{
+          if(txt.has(k)) return `<td class="txt">${esc(k==="fecha"?fmtCorta(r[k]):r[k])}</td>`;
+          const v=num(r[k]);
+          if(k==="descuadre") return `<td class="${v<0?"neg":(v>0?"pos":"")}">${v===0?"—":money(v)}</td>`;
+          if(k==="dolares")   return `<td>${v?"$"+v:"—"}</td>`;
+          return `<td>${v?money(v):"—"}</td>`;
+        }).join("")}</tr>`).join("")}</tbody>
+    </table></div>`;
+}
+
+function adminPintarOtros(body){
+  body.innerHTML=`
+    <div class="card" style="max-width:520px">
+      <h2 class="step">Registrar otro ingreso</h2>
+      <p class="hint">Efectivo que no viene de una caja. Entra al depósito directamente.</p>
+      <label class="fld"><span>Fecha</span><input type="date" id="o-fecha" value="${A.hasta}"></label>
+      <label class="fld"><span>¿De qué es?</span><input id="o-desc" placeholder="Ej. venta de aceite quemado"></label>
+      <label class="fld"><span>Monto</span><input id="o-monto" inputmode="numeric" placeholder="0"></label>
+      <p class="err hidden" id="o-err"></p>
+      <button class="btn-primary" style="width:100%" id="o-go">Guardar</button>
+    </div>
+    ${A.otros.length?`<div class="xls" style="margin-top:14px"><table class="grid">
+      <thead><tr><th>Fecha</th><th>Depósito</th><th>Descripción</th><th>Monto</th><th>Origen</th><th>Registró</th></tr></thead>
+      <tbody>${A.otros.map(o=>`<tr>
+        <td class="txt">${fmtCorta(o.fecha)}</td><td class="txt">${fmtCorta(o.deposito)}</td>
+        <td class="txt">${esc(o.descripcion)}</td><td>${money(num(o.monto))}</td>
+        <td class="txt">${esc(o.origen)}</td><td class="txt">${esc(o.registradoPor)}</td></tr>`).join("")}</tbody>
+    </table></div>`:`<p class="hint">Sin otros ingresos en este rango.</p>`}`;
+  $("#o-go").onclick=async()=>{
+    const err=$("#o-err"), btn=$("#o-go");
+    const desc=$("#o-desc").value.trim(), monto=num($("#o-monto").value);
+    if(!desc||!monto){ err.textContent="Poné la descripción y el monto."; err.classList.remove("hidden"); return; }
+    btn.disabled=true; btn.textContent="Guardando…"; err.classList.add("hidden");
+    try{
+      const r=await api({accion:"otroIngreso", pin:ADMIN.pin, fecha:$("#o-fecha").value, descripcion:desc, monto});
+      if(!r.ok){ err.textContent=r.error; err.classList.remove("hidden"); btn.disabled=false; btn.textContent="Guardar"; return; }
+      adminCargar();
+    }catch(e){ err.textContent="Sin conexión."; err.classList.remove("hidden"); btn.disabled=false; btn.textContent="Guardar"; }
+  };
+}
+
+/* ---- Exportar a Excel (copia de solo lectura, no toca los datos) -------- */
+function exportarExcel(){
+  const cols=["fecha","deposito","caja","cajero","apertura","venta","bac","davibank","sinpes",
+    "dolares","tipoCambio","retiros","retiroJustif","otrosDesc","otrosMonto","efectivoContado",
+    "entrega","fondoFinal","descuadre","residuo","notas","estado","fechaHora"];
+  const enc=["Fecha","Depósito","Caja","Cajero","Apertura","Venta","BAC","Davibank","SINPE",
+    "Dólares","T. Cambio","Retiros","Justificación","Otros (desc.)","Otros (monto)","Efectivo contado",
+    "Depositado","Fondo final","Descuadre","Residuo","Notas","Estado","Registrado"];
+  const numCols=new Set(["apertura","venta","bac","davibank","sinpes","dolares","tipoCambio","retiros",
+    "otrosMonto","efectivoContado","entrega","fondoFinal","descuadre","residuo"]);
+  let h=`<table border="1"><tr>${enc.map(e=>`<th style="background:#e8efe9">${e}</th>`).join("")}</tr>`;
+  A.cierres.forEach(r=>{
+    h+="<tr>"+cols.map(k=>{
+      const v=r[k]==null?"":r[k];
+      return numCols.has(k)?`<td>${num(v)}</td>`:`<td>${esc(v)}</td>`;
+    }).join("")+"</tr>";
+  });
+  if(A.otros.length){
+    h+=`<tr><td colspan="${cols.length}"></td></tr><tr><th colspan="4" style="background:#e8efe9">Otros ingresos</th></tr>`;
+    h+=`<tr><th>Fecha</th><th>Depósito</th><th>Descripción</th><th>Monto</th></tr>`;
+    A.otros.forEach(o=>{ h+=`<tr><td>${esc(o.fecha)}</td><td>${esc(o.deposito)}</td>
+      <td>${esc(o.descripcion)}</td><td>${num(o.monto)}</td></tr>`; });
+  }
+  h+="</table>";
+  const blob=new Blob(["\ufeff<html xmlns:x='urn:schemas-microsoft-com:office:excel'><head><meta charset='utf-8'></head><body>"+h+"</body></html>"],
+    {type:"application/vnd.ms-excel"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`cierres_${A.desde}_a_${A.hasta}.xls`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
