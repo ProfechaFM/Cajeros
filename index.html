@@ -119,9 +119,11 @@ let CFG = null;            // cajeros, cajas, monedas, minimos, billetes (del Sh
 let TODAS = [];            // denominaciones de mayor a menor
 let ADMIN = null;          // { pin, config, ... } cuando entra un admin
 
+const DEN_DOL = [100,50,20,10,5,2,1];
+
 const C = {                // estado del cierre en curso
-  cajero:null, pin:null, caja:"", fecha:null, apertura:null,
-  bac:0, davibank:0, sinpes:0, dolares:0, retiros:0, retiroJustif:"",
+  cajero:null, pin:null, caja:"", fecha:null, apertura:null, modoAdmin:false,
+  bac:0, davibank:0, sinpes:0, dolares:0, dolaresDen:{}, retiros:0, retiroJustif:"",
   otrosDesc:"", otrosMonto:0, venta:null,
   billetes:{}, pesos:{}, notas:"", congelado:false
 };
@@ -240,7 +242,7 @@ const PASOS=["fecha","apertura","electronicos","venta","conteo","prevista","resu
 let paso=0;
 function irA(p){ paso=p; renderPaso(); }
 function renderPaso(){
-  $("#who").textContent = C.cajero + (C.caja? " · "+C.caja : "");
+  $("#who").textContent = (C.modoAdmin?"Admin · ":"") + (C.cajero||"—") + (C.caja? " · "+C.caja : "");
   const prog=$("#prog"); prog.innerHTML="";
   PASOS.forEach((_,i)=>{ const s=document.createElement("span"); if(i<=paso)s.className="on"; prog.appendChild(s); });
   ({fecha:pFecha,apertura:pApertura,electronicos:pElectronicos,venta:pVenta,
@@ -250,7 +252,7 @@ function navBar(onNext,label="Continuar",canNext=true){
   nav.classList.remove("hidden");
   nav.innerHTML = `${paso>0?`<button class="btn-ghost" id="nv-b">Atrás</button>`:""}
                    <button class="btn-primary" id="nv-n" ${canNext?"":"disabled"}>${label}</button>`;
-  const b=$("#nv-b"); if(b) b.onclick=()=>irA(paso-1);
+  const b=$("#nv-b"); if(b) b.onclick=()=>{ if(paso-1===2) sub=SUBS.length-1; irA(paso-1); };
   $("#nv-n").onclick=onNext;
 }
 
@@ -258,7 +260,11 @@ function pFecha(){
   screen.innerHTML=`
     <div class="card">
       <h2 class="step">Fecha y caja</h2>
-      <p class="hint">Confirmá la fecha del cierre y tu caja.</p>
+      <p class="hint">${C.modoAdmin?"Elegí el cajero, la fecha y la caja del cierre.":"Confirmá la fecha del cierre y tu caja."}</p>
+      ${C.modoAdmin?`<label class="fld"><span>Cajero(a)</span>
+        <select id="f-cajero"><option value="">Seleccioná…</option>
+          ${CFG.cajeros.map(n=>`<option ${C.cajero===n?"selected":""}>${esc(n)}</option>`).join("")}
+        </select></label>`:""}
       <label class="fld"><span>Fecha del cierre</span>
         <input id="f-fecha" type="date" value="${C.fecha}"></label>
       <label class="fld"><span>Caja</span>
@@ -267,10 +273,12 @@ function pFecha(){
         </select></label>
       <div class="note" id="f-dep">Este cierre entra en el depósito del <b>${fmtFecha(depositoDe(C.fecha))}</b>.</div>
     </div>`;
-  const ok=()=>navBar(()=>irA(1),"Continuar",!!C.caja);
+  const listo=()=>!!C.caja && (!C.modoAdmin || !!C.cajero);
+  const ok=()=>navBar(()=>irA(1),"Continuar",listo());
   $("#f-fecha").onchange=e=>{ C.fecha=e.target.value;
     $("#f-dep").innerHTML=`Este cierre entra en el depósito del <b>${fmtFecha(depositoDe(C.fecha))}</b>.`; };
   $("#f-caja").onchange=e=>{ C.caja=e.target.value; ok(); };
+  if(C.modoAdmin) $("#f-cajero").onchange=e=>{ C.cajero=e.target.value; renderPaso(); };
   ok();
 }
 
@@ -287,35 +295,84 @@ function pApertura(){
   ok();
 }
 
+/* Los movimientos se piden UNO POR PANTALLA para no saturar al cajero. */
+const SUBS=[
+  {k:"bac",      t:"Datáfono BAC",       h:"Monto del cierre del datáfono BAC."},
+  {k:"davibank", t:"Datáfono Davibank",  h:"Monto del cierre del datáfono Davibank."},
+  {k:"sinpes",   t:"SINPE Móvil",        h:"Total recibido por SINPE Móvil."},
+  {k:"dolares",  t:"Dólares recibidos",  h:"Cantidad en dólares. Dejalo vacío si no hubo.", dolar:true},
+  {k:"retiros",  t:"Retiros de efectivo",h:"Dinero que se sacó de la caja. Dejalo vacío si no hubo.", just:true},
+  {k:"otros",    t:"Otros ingresos",     h:"Efectivo que no viene de la venta, por ejemplo la venta de aceite quemado. Dejalo vacío si no hubo.", otros:true}
+];
+let sub=0;
+
 function pElectronicos(){
-  const f=(id,lbl,val)=>`<label class="fld"><span>${lbl}</span>
-    <input id="${id}" data-money inputmode="numeric" value="${mIn(val)}" placeholder="₡0"></label>`;
-  screen.innerHTML=`
-    <div class="card">
-      <h2 class="step">Datáfonos y otros</h2>
-      <p class="hint">Digitá cada monto. Dejá vacío lo que no aplique.</p>
-      ${f("e-bac","Datáfono BAC",C.bac)}
-      ${f("e-dav","Datáfono Davibank",C.davibank)}
-      ${f("e-sin","SINPE Móvil",C.sinpes)}
-      <label class="fld"><span>Dólares recibidos ($)</span>
-        <input id="e-dol" inputmode="numeric" value="${C.dolares||""}" placeholder="0"></label>
-      ${f("e-ret","Retiros de efectivo",C.retiros)}
-      <label class="fld hidden" id="e-just-wrap"><span>Justificación del retiro (obligatoria)</span>
-        <textarea id="e-just" placeholder="¿Por qué se hizo el retiro?">${esc(C.retiroJustif)}</textarea></label>
-      <div class="subhead">Otros ingresos (opcional)</div>
-      <p class="hint">Efectivo que no es de la venta (ej. venta de aceite quemado).</p>
+  const S=SUBS[sub], ultimo=(sub===SUBS.length-1);
+  const paso_t=`Paso ${sub+1} de ${SUBS.length}`;
+  let campos;
+  if(S.otros){
+    campos=`
       <label class="fld"><span>¿De qué es?</span>
         <input id="e-odesc" value="${esc(C.otrosDesc)}" placeholder="Descripción"></label>
-      ${f("e-omonto","Monto",C.otrosMonto)}
+      <label class="fld"><span>Monto</span>
+        <input id="e-omonto" data-money inputmode="numeric" value="${mIn(C.otrosMonto)}" placeholder="₡0"></label>`;
+  } else if(S.dolar){
+    campos=`<label class="fld"><span>Total en dólares ($)</span>
+        <input id="e-val" inputmode="numeric" value="${C.dolares||""}" placeholder="0"></label>
+      <div id="e-dd" class="${C.dolares>0?"":"hidden"}">
+        <div class="subhead">Detalle de billetes</div>
+        ${DEN_DOL.map(d=>`<div class="denom-row"><span class="dn">$${d}</span>
+          <input inputmode="numeric" data-dol="${d}" value="${C.dolaresDen[d]||""}" placeholder="0"></div>`).join("")}
+        <p class="hint" id="e-dsum" style="margin-top:10px"></p>
+      </div>`;
+  } else {
+    campos=`<label class="fld"><span>Monto</span>
+        <input id="e-val" data-money inputmode="numeric" value="${mIn(C[S.k])}" placeholder="₡0"></label>`;
+  }
+  screen.innerHTML=`
+    <div class="card">
+      <p class="hint" style="margin:0 0 4px">${paso_t}</p>
+      <h2 class="step">${S.t}</h2>
+      <p class="hint">${S.h}</p>
+      ${campos}
+      ${S.just?`<label class="fld hidden" id="e-just-wrap"><span>Justificación del retiro (obligatoria)</span>
+        <textarea id="e-just" placeholder="¿Por qué se hizo el retiro?">${esc(C.retiroJustif)}</textarea></label>`:""}
     </div>`;
+
+  const avanzar=()=>{ if(ultimo){ sub=0; irA(3); } else { sub++; renderPaso(); } };
+  const atras=()=>{ if(sub===0){ irA(1); } else { sub--; renderPaso(); } };
+
   const sync=()=>{
     fmtMontos(screen);
-    C.bac=num($("#e-bac").value); C.davibank=num($("#e-dav").value); C.sinpes=num($("#e-sin").value);
-    C.dolares=num($("#e-dol").value); C.retiros=num($("#e-ret").value);
-    C.retiroJustif=$("#e-just").value.trim();
-    C.otrosDesc=$("#e-odesc").value.trim(); C.otrosMonto=num($("#e-omonto").value);
-    $("#e-just-wrap").classList.toggle("hidden", !(C.retiros>0));
-    navBar(()=>irA(3),"Continuar", !(C.retiros>0 && !C.retiroJustif));
+    let ok = true;
+    if(S.otros){
+      C.otrosDesc=$("#e-odesc").value.trim(); C.otrosMonto=num($("#e-omonto").value);
+    } else if(S.dolar){
+      C.dolares=num($("#e-val").value);
+      DEN_DOL.forEach(d=>{ const el=screen.querySelector(`input[data-dol="${d}"]`);
+        if(el) C.dolaresDen[d]=Math.round(num(el.value)); });
+      const suma=DEN_DOL.reduce((s,d)=>s+(C.dolaresDen[d]||0)*d,0);
+      $("#e-dd").classList.toggle("hidden", !(C.dolares>0));
+      if(C.dolares>0){
+        const igual = suma===C.dolares;
+        $("#e-dsum").textContent = igual
+          ? `Detalle completo: $${suma}`
+          : `Detallado $${suma} de $${C.dolares}. Ajustá las cantidades.`;
+        $("#e-dsum").style.color = igual ? "var(--brand-ink)" : "var(--danger-ink)";
+        ok = igual;
+      }
+    } else {
+      C[S.k]=num($("#e-val").value);
+      if(S.just){
+        C.retiroJustif=$("#e-just").value.trim();
+        $("#e-just-wrap").classList.toggle("hidden", !(C.retiros>0));
+        ok = !(C.retiros>0 && !C.retiroJustif);
+      }
+    }
+    nav.classList.remove("hidden");
+    nav.innerHTML=`<button class="btn-ghost" id="nv-b">Atrás</button>
+                   <button class="btn-primary" id="nv-n" ${ok?"":"disabled"}>Continuar</button>`;
+    $("#nv-b").onclick=atras; $("#nv-n").onclick=avanzar;
   };
   screen.querySelectorAll("input,textarea").forEach(el=>el.oninput=sync);
   sync();
@@ -341,23 +398,23 @@ function pConteo(){
   const coin=Object.keys(CFG.monedas).map(Number).sort((a,b)=>b-a).map(d=>`
     <div class="denom-row"><span class="dn">₡${d.toLocaleString("es-CR")}</span>
       <input inputmode="decimal" data-coin="${d}" value="${C.pesos[d]??""}" placeholder="peso (g)">
-      <span class="tot" id="ct-${d}">—</span></div>`).join("");
+      ${C.modoAdmin?`<span class="tot" id="ct-${d}">—</span>`:""}</div>`).join("");
   screen.innerHTML=`
     <div class="card">
       <h2 class="step">Conteo de efectivo</h2>
       <p class="hint">Contá los billetes y pesá las monedas en gramos.</p>
       <div class="subhead">Billetes — cantidad</div>${bill}
       <div class="subhead">Monedas — peso en gramos</div>${coin}
-      <div class="note" style="margin-top:14px">Al continuar, este conteo queda registrado y no se puede modificar.</div>
     </div>`;
   const est=d=>{ const c=CFG.monedas[d], p=num(C.pesos[d]);
     return (p>0&&c.ref>0)?"≈ "+Math.round(p/c.ref*c.cant)+" ud":"—"; };
-  Object.keys(CFG.monedas).forEach(d=>{ const el=$("#ct-"+d); if(el) el.textContent=est(d); });
+  if(C.modoAdmin) Object.keys(CFG.monedas).forEach(d=>{ const el=$("#ct-"+d); if(el) el.textContent=est(d); });
   screen.querySelectorAll("input[data-bill]").forEach(el=>el.oninput=e=>{
     C.billetes[+e.target.dataset.bill]=Math.round(num(e.target.value)); });
   screen.querySelectorAll("input[data-coin]").forEach(el=>el.oninput=e=>{
-    const d=+e.target.dataset.coin; C.pesos[d]=num(e.target.value); $("#ct-"+d).textContent=est(d); });
-  navBar(()=>{ C.congelado=true; irA(5); },"Congelar y continuar");
+    const d=+e.target.dataset.coin; C.pesos[d]=num(e.target.value);
+    if(C.modoAdmin){ const el2=$("#ct-"+d); if(el2) el2.textContent=est(d); } });
+  navBar(()=>{ C.congelado=true; irA(5); },"Continuar");
 }
 
 function pPrevista(){
@@ -371,12 +428,12 @@ function pPrevista(){
       <label class="fld"><span>Datáfono BAC</span><input id="p-bac" data-money inputmode="numeric" value="${mIn(C.bac)}" placeholder="₡0"></label>
       <label class="fld"><span>Datáfono Davibank</span><input id="p-dav" data-money inputmode="numeric" value="${mIn(C.davibank)}" placeholder="₡0"></label>
       <label class="fld"><span>SINPE Móvil</span><input id="p-sin" data-money inputmode="numeric" value="${mIn(C.sinpes)}" placeholder="₡0"></label>
-      <label class="fld"><span>Dólares ($)</span><input id="p-dol" inputmode="numeric" value="${C.dolares||""}" placeholder="0"></label>
       <div class="subhead">Resumen (bloqueado)</div>
       <div class="review locked" style="padding:2px 12px;border-radius:10px">
         ${rr("Fecha",fmtCorta(C.fecha))}${rr("Caja",esc(C.caja))}
         ${rr("Apertura",money(C.apertura))}${rr("Venta de sistema",money(C.venta))}
         ${rr("Retiros",money(C.retiros))}
+        ${C.dolares>0?rr("Dólares","$"+C.dolares):""}
         ${C.otrosMonto?rr("Otros ingresos",money(C.otrosMonto)):""}
       </div>
       <label class="fld" style="margin-top:14px"><span>Notas (opcional)</span>
@@ -385,7 +442,7 @@ function pPrevista(){
     </div>`;
   const s=()=>{ fmtMontos(screen);
     C.bac=num($("#p-bac").value); C.davibank=num($("#p-dav").value);
-    C.sinpes=num($("#p-sin").value); C.dolares=num($("#p-dol").value); C.notas=$("#p-notas").value.trim(); };
+    C.sinpes=num($("#p-sin").value); C.notas=$("#p-notas").value.trim(); };
   screen.querySelectorAll("input,textarea").forEach(el=>el.oninput=s);
   navBar(async()=>{
     s();
@@ -393,9 +450,12 @@ function pPrevista(){
     btn.disabled=true; btn.textContent="Enviando…"; err.classList.add("hidden");
     try{
       const r = await api({
-        accion:"guardarCierre", cajero:C.cajero, pin:C.pin, caja:C.caja, fecha:C.fecha,
+        accion:"guardarCierre", cajero:C.cajero,
+        pin: C.modoAdmin ? "" : C.pin,
+        adminPin: C.modoAdmin ? ADMIN.pin : "",
+        caja:C.caja, fecha:C.fecha,
         apertura:C.apertura, venta:C.venta, bac:C.bac, davibank:C.davibank, sinpes:C.sinpes,
-        dolares:C.dolares, retiros:C.retiros, retiroJustif:C.retiroJustif,
+        dolares:C.dolares, dolaresDen:C.dolaresDen, retiros:C.retiros, retiroJustif:C.retiroJustif,
         otrosDesc:C.otrosDesc, otrosMonto:C.otrosMonto,
         billetes:C.billetes, pesos:C.pesos, notas:C.notas
       });
@@ -419,14 +479,29 @@ function pResultado(R){
   const tot=o=>TODAS.reduce((s,d)=>s+(o[d]||0)*d,0);
   const totE=tot(R.desgloseEntrega), totF=tot(R.desgloseFondo);
   nav.classList.remove("hidden");
-  nav.innerHTML=`<button class="btn-ghost no-print" id="r-new">Nuevo cierre</button>
+  nav.innerHTML=`<button class="btn-ghost no-print" id="r-new">${C.modoAdmin?"Volver":"Nuevo cierre"}</button>
                  <button class="btn-primary no-print" id="r-print">Imprimir / PDF</button>`;
-  $("#r-new").onclick=()=>location.reload();
+  $("#r-new").onclick=()=>{ if(C.modoAdmin) location.reload(); else location.reload(); };
   $("#r-print").onclick=()=>window.print();
+  const D=R.detalle;
+  const bloqueAdmin = (C.modoAdmin && D) ? `
+      <div style="border:1px solid var(--brand);border-radius:8px;padding:10px 12px;margin:0 0 12px">
+        <div style="font-weight:600;font-size:13px;color:var(--brand-ink);margin-bottom:6px">
+          Detalle para administrador</div>
+        <div class="meta" style="margin:0">
+          <div><span class="k">Efectivo contado</span><span>${money(D.efectivoContado)}</span></div>
+          <div><span class="k">Efectivo esperado</span><span>${money(D.esperado)}</span></div>
+          <div><span class="k">Fondo que queda</span><span>${money(D.fondoFinal)}</span></div>
+          <div><span class="k">${D.descuadre<0?"Faltante":(D.descuadre>0?"Sobrante":"Descuadre")}</span>
+            <span style="color:${D.descuadre<0?"var(--danger-ink)":(D.descuadre>0?"var(--brand-ink)":"inherit")};font-weight:600">
+            ${D.descuadre===0?"Cuadra exacto":money(Math.abs(D.descuadre))}</span></div>
+          ${D.residuo>0?`<div><span class="k">Ajuste por denominación</span><span>${money(D.residuo)}</span></div>`:""}
+        </div>
+      </div>` : "";
   screen.innerHTML=`
     <div class="cbte">
       <h3>Comprobante de cierre</h3>
-      <div class="sub">La Fiesta del Maíz · Profecha S.A.</div>
+      <div class="sub">La Fiesta del Maíz · Profecha S.A.${C.modoAdmin?" · hecho con administrador":""}</div>
       <div class="meta">
         <div><span class="k">Fecha</span><span>${fmtCorta(C.fecha)}</span></div>
         <div><span class="k">Caja</span><span>${esc(C.caja)}</span></div>
@@ -437,6 +512,11 @@ function pResultado(R){
       </div>
       ${R.alerta&&R.alerta.activa?`<div class="alert">Faltan ${money(R.alerta.monto)}.<br>
         Revisá el cierre con un administrador.</div>`:""}
+      ${R.fondoBajo&&R.fondoBajo.activa?`<div style="background:var(--warn-bg);border:1px solid var(--warn-line);
+        color:var(--warn-ink);border-radius:8px;padding:10px;text-align:center;font-weight:600;margin:0 0 12px">
+        La caja quedó con poco efectivo para dar vuelto.<br>Avisá a un administrador para reponer.
+        ${C.modoAdmin&&R.detalle?` (faltan ${money(R.detalle.faltaFondo)})`:""}</div>`:""}
+      ${bloqueAdmin}
       <div class="big">Entregar: ${money(totE)}${C.dolares>0?` + $${C.dolares}`:""}</div>
       <table><caption>Dinero entregado</caption>
         <thead><tr><th>Cantidad</th><th style="text-align:left">Denominación</th><th>Total</th></tr></thead>
@@ -495,6 +575,7 @@ function adminRender(){
     <div class="tabs">
       <button class="${A.tab==="cierres"?"on":""}" onclick="adminTab('cierres')">Cierres</button>
       <button class="${A.tab==="otros"?"on":""}" onclick="adminTab('otros')">Otros ingresos</button>
+      <button onclick="iniciarCierreAdmin()">Hacer cierre con cajero</button>
       <button onclick="renderLogin()">Salir</button>
     </div>
     <div class="toolbar no-print">
@@ -508,6 +589,19 @@ function adminRender(){
   $("#a-excel").onclick=exportarExcel;
 }
 function adminTab(t){ A.tab=t; adminRender(); adminPintar(); }
+
+/** Cierre hecho por un administrador junto al cajero: muestra todo el detalle. */
+function iniciarCierreAdmin(){
+  C.modoAdmin=true; C.pin=null; C.cajero=null; C.caja="";
+  C.fecha=CFG.hoy; C.apertura=null;
+  C.bac=0; C.davibank=0; C.sinpes=0; C.dolares=0; C.dolaresDen={}; C.retiros=0; C.retiroJustif="";
+  C.otrosDesc=""; C.otrosMonto=0; C.venta=null;
+  C.billetes={}; C.pesos={}; C.notas=""; C.congelado=false;
+  sub=0;
+  $("#wrap").classList.remove("admin");
+  $("#apptitle").textContent="Cierre con administrador";
+  irA(0);
+}
 
 async function adminCargar(){
   try{
@@ -582,36 +676,22 @@ function adminPintarOtros(body){
   };
 }
 
-/* ---- Exportar a Excel (copia de solo lectura, no toca los datos) -------- */
-function exportarExcel(){
-  const cols=["fecha","deposito","caja","cajero","apertura","venta","bac","davibank","sinpes",
-    "dolares","tipoCambio","retiros","retiroJustif","otrosDesc","otrosMonto","efectivoContado",
-    "entrega","fondoFinal","descuadre","residuo","notas","estado","fechaHora"];
-  const enc=["Fecha","Depósito","Caja","Cajero","Apertura","Venta","BAC","Davibank","SINPE",
-    "Dólares","T. Cambio","Retiros","Justificación","Otros (desc.)","Otros (monto)","Efectivo contado",
-    "Depositado","Fondo final","Descuadre","Residuo","Notas","Estado","Registrado"];
-  const numCols=new Set(["apertura","venta","bac","davibank","sinpes","dolares","tipoCambio","retiros",
-    "otrosMonto","efectivoContado","entrega","fondoFinal","descuadre","residuo"]);
-  let h=`<table border="1"><tr>${enc.map(e=>`<th style="background:#e8efe9">${e}</th>`).join("")}</tr>`;
-  A.cierres.forEach(r=>{
-    h+="<tr>"+cols.map(k=>{
-      const v=r[k]==null?"":r[k];
-      return numCols.has(k)?`<td>${num(v)}</td>`:`<td>${esc(v)}</td>`;
-    }).join("")+"</tr>";
-  });
-  if(A.otros.length){
-    h+=`<tr><td colspan="${cols.length}"></td></tr><tr><th colspan="4" style="background:#e8efe9">Otros ingresos</th></tr>`;
-    h+=`<tr><th>Fecha</th><th>Depósito</th><th>Descripción</th><th>Monto</th></tr>`;
-    A.otros.forEach(o=>{ h+=`<tr><td>${esc(o.fecha)}</td><td>${esc(o.deposito)}</td>
-      <td>${esc(o.descripcion)}</td><td>${num(o.monto)}</td></tr>`; });
-  }
-  h+="</table>";
-  const blob=new Blob(["\ufeff<html xmlns:x='urn:schemas-microsoft-com:office:excel'><head><meta charset='utf-8'></head><body>"+h+"</body></html>"],
-    {type:"application/vnd.ms-excel"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=`cierres_${A.desde}_a_${A.hasta}.xls`;
-  a.click(); URL.revokeObjectURL(a.href);
+/* ---- Exportar a Excel: lo genera el servidor, una hoja por depósito ----- */
+async function exportarExcel(){
+  const btn=$("#a-excel"); if(!btn) return;
+  const txt=btn.textContent; btn.disabled=true; btn.textContent="Generando…";
+  try{
+    const r=await api({accion:"exportar", pin:ADMIN.pin, desde:A.desde, hasta:A.hasta});
+    if(!r.ok){ alert(r.error||"No se pudo exportar."); return; }
+    const bin=atob(r.archivo), bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],
+      {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=r.nombre||"depositos.xlsx";
+    a.click(); URL.revokeObjectURL(a.href);
+  }catch(e){ alert("Sin conexión o el archivo tardó demasiado."); }
+  finally{ btn.disabled=false; btn.textContent=txt; }
 }
 </script>
 </body>
