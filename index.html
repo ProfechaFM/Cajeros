@@ -94,9 +94,24 @@
   .kpi .v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
   .hidden{display:none}
   @media print{
-    body{background:#fff}.wrap{max-width:none;padding:0}
+    @page{ size:letter portrait; margin:12mm; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body{background:#fff;font-size:10pt}
+    .wrap{max-width:none;padding:0}
     header.app,.prog,.navbar,.no-print,.tabs,.toolbar{display:none!important}
-    .cbte{border:0;padding:0}
+    .cbte{border:0;padding:0;page-break-inside:avoid}
+    .cbte h3{font-size:13pt;margin:0 0 1px}
+    .cbte .sub{font-size:8.5pt;margin:0 0 7px}
+    .cbte .meta{font-size:8.5pt;gap:0 14px;margin:0 0 7px}
+    .cbte .meta div{padding:1px 0}
+    .cbte .big{font-size:12pt;padding:5px;margin:3px 0 7px}
+    .cbte .alert{font-size:9pt;padding:6px;margin:0 0 7px}
+    /* las dos tablas van lado a lado, como en la hoja de Excel */
+    .tablas{display:flex;gap:12px;align-items:flex-start}
+    .tablas table{flex:1;margin:0;page-break-inside:avoid}
+    .cbte caption{font-size:8.5pt;padding:2px 0}
+    .cbte th,.cbte td{padding:1.5px 5px;font-size:8.5pt}
+    .cbte .notas{font-size:8.5pt;margin-top:8px}
   }
 </style>
 </head>
@@ -495,7 +510,7 @@ function pResultado(R){
           <div><span class="k">${D.descuadre<0?"Faltante":(D.descuadre>0?"Sobrante":"Descuadre")}</span>
             <span style="color:${D.descuadre<0?"var(--danger-ink)":(D.descuadre>0?"var(--brand-ink)":"inherit")};font-weight:600">
             ${D.descuadre===0?"Cuadra exacto":money(Math.abs(D.descuadre))}</span></div>
-          ${D.residuo>0?`<div><span class="k">Ajuste por denominación</span><span>${money(D.residuo)}</span></div>`:""}
+          ${D.residuo!==0?`<div><span class="k">Diferencia del fondo</span><span>${D.residuo>0?"+":"−"}${money(Math.abs(D.residuo))}</span></div>`:""}
         </div>
       </div>` : "";
   screen.innerHTML=`
@@ -518,14 +533,16 @@ function pResultado(R){
         ${C.modoAdmin&&R.detalle?` (faltan ${money(R.detalle.faltaFondo)})`:""}</div>`:""}
       ${bloqueAdmin}
       <div class="big">Entregar: ${money(totE)}${C.dolares>0?` + $${C.dolares}`:""}</div>
+      <div class="tablas">
       <table><caption>Dinero entregado</caption>
         <thead><tr><th>Cantidad</th><th style="text-align:left">Denominación</th><th>Total</th></tr></thead>
-        <tbody>${filas(R.desgloseEntrega,false)||`<tr><td colspan="3" style="text-align:center;color:#6b6a62">Sin entrega</td></tr>`}</tbody>
+        <tbody>${filas(R.desgloseEntrega,false)}</tbody>
         <tfoot><tr><td></td><td class="den">Total</td><td>${money(totE)}</td></tr></tfoot></table>
       <table><caption>Dinero disponible en caja</caption>
         <thead><tr><th>Cantidad</th><th style="text-align:left">Denominación</th><th>Total</th></tr></thead>
-        <tbody>${filas(R.desgloseFondo,true)||`<tr><td colspan="3" style="text-align:center;color:#6b6a62">—</td></tr>`}</tbody>
+        <tbody>${filas(R.desgloseFondo,true)}</tbody>
         <tfoot><tr><td></td><td class="den">Total</td><td>${money(totF)}</td></tr></tfoot></table>
+      </div>
       ${C.notas?`<div class="notas"><b>Notas:</b> ${esc(C.notas)}</div>`:""}
     </div>`;
 }
