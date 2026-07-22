@@ -366,6 +366,7 @@ function pElectronicos(){
       C.dolares=num($("#e-val").value);
       DEN_DOL.forEach(d=>{ const el=screen.querySelector(`input[data-dol="${d}"]`);
         if(el) C.dolaresDen[d]=Math.round(num(el.value)); });
+      if(!(C.dolares>0)){ C.dolaresDen={}; }   // sin dólares: se borra el detalle
       const suma=DEN_DOL.reduce((s,d)=>s+(C.dolaresDen[d]||0)*d,0);
       $("#e-dd").classList.toggle("hidden", !(C.dolares>0));
       if(C.dolares>0){
