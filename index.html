@@ -423,7 +423,7 @@ function pConteo(){
       <div class="subhead">Monedas — peso en gramos</div>${coin}
     </div>`;
   const est=d=>{ const c=CFG.monedas[d], p=num(C.pesos[d]);
-    return (p>0&&c.ref>0)?"≈ "+Math.round(p/c.ref*c.cant)+" ud":"—"; };
+    return (p>0&&c.ref>0)?"≈ "+Math.floor(p/c.ref*c.cant)+" ud":"—"; };
   if(C.modoAdmin) Object.keys(CFG.monedas).forEach(d=>{ const el=$("#ct-"+d); if(el) el.textContent=est(d); });
   screen.querySelectorAll("input[data-bill]").forEach(el=>el.oninput=e=>{
     C.billetes[+e.target.dataset.bill]=Math.round(num(e.target.value)); });
